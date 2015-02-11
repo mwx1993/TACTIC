@@ -123,6 +123,14 @@ class TileLayoutWdg(ToolLayoutWdg):
 
     }
 
+    ARGS_KEYS['drag_action'] = {
+            'description': 'Configures what happens when a tile is dragged',
+            'type': 'SelectWdg',
+            'values': 'basic|search_key|web|main',
+            'order': '14',
+            'category': 'Display'
+    }
+
 
 
 
@@ -349,6 +357,11 @@ class TileLayoutWdg(ToolLayoutWdg):
             my.aspect_ratio = (240, 160)
 
         my.show_name_hover = my.kwargs.get('show_name_hover')
+
+        my.drag_action = my.kwargs.get('drag_action')
+        # current default is search_key, should change when dependent projects are changed
+        if not my.drag_action:
+            my.drag_action = 'search_key'
 
         my.top_styles = my.kwargs.get('styles')
         my.spacing = my.kwargs.get('spacing')
@@ -893,21 +906,46 @@ class TileLayoutWdg(ToolLayoutWdg):
         thumb_drag_div.add_class("spt_tile_drag")
         thumb_drag_div.add_style("width: auto")
         thumb_drag_div.add_style("height: auto")
-        thumb_drag_div.add_behavior( {
-            "type": "drag",
-            #'drag_el': 'drag_ghost_copy',
-            #//'use_copy': 'true',
-            "drag_el": '@',
-            'drop_code': 'DROP_ROW',
-            'border_color': border_color,
-            'search_type': my.search_type,
-            "cb_set_prefix": 'spt.tile_layout.image_drag'
-        } )
+        if my.drag_action == 'search_key':
+            thumb_drag_div.add_behavior( {
+                "type": "drag",
+                #'drag_el': 'drag_ghost_copy',
+                #//'use_copy': 'true',
+                "drag_el": '@',
+                'drop_code': 'DROP_ROW',
+                'border_color': border_color,
+                'search_type': my.search_type,
+                "cb_set_prefix": 'spt.tile_layout.image_drag'
+            } )
 
         thumb_div = DivWdg()
         thumb_drag_div.add(thumb_div)
         thumb_div.add_class("spt_tile_content")
 
+        if my.drag_action in ['web','main']:
+            thumb_drag_a = HtmlElement.href()
+
+            if my.drag_action == 'web':
+                file_type = 'web'
+            elif my.drag_action == 'main':
+                file_type = 'main'
+
+            search_type = sobject.get_search_type()
+            search_code = sobject.get_value("code", no_exception=True)
+            if not search_code:
+                search_code = sobject.get_id()
+
+            # FIXME: make this faster
+
+            snapshot = Snapshot.get_snapshot(search_type, search_code, process=['icon','publish',''])
+
+            file_link = snapshot.get_web_path_by_type(file_type)
+
+            thumb_drag_a.add_attr("href",file_link)
+            thumb_drag_div2 = DivWdg()
+            thumb_drag_div2.add_styles("width: 100%; height: 75%; position: absolute; top: 0px; left: 0px;")
+            thumb_drag_div2.add_class("spt_drag_file")
+            thumb_drag_a.add(thumb_drag_div2)
 
         
         thumb_div.add_style("width: %s" % my.aspect_ratio[0])
@@ -920,6 +958,8 @@ class TileLayoutWdg(ToolLayoutWdg):
         thumb = ThumbWdg2(**kwargs)
         thumb.set_sobject(sobject)
         thumb_div.add(thumb)
+        if my.drag_action in ['web','main']:
+            thumb_div.add(thumb_drag_a)
         thumb_div.add_border()
 
         #bottom_view = my.kwargs.get("bottom_view")
